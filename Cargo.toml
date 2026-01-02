@@ -16,6 +16,7 @@ features = [
 	"Media",
 	"Win32_Foundation",
 	"Win32_System_WinRT",
+	"Win32_UI_Shell",
 	"Storage_Streams",
 ]
 

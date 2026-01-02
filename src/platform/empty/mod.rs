@@ -1,4 +1,4 @@
-use crate::{MediaControlEvent, MediaMetadata, MediaPlayback, PlatformConfig};
+use crate::{MediaButton, MediaControlEvent, MediaMetadata, MediaPlayback, PlatformConfig};
 
 /// A platform-specific error.
 #[derive(Debug)]
@@ -41,6 +41,11 @@ impl MediaControls {
 
     /// Set the metadata of the currently playing media item.
     pub fn set_metadata(&mut self, _metadata: MediaMetadata) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Enable or disable a specific media control button.
+    pub fn set_button_enabled(&mut self, _button: MediaButton, _enabled: bool) -> Result<(), Error> {
         Ok(())
     }
 }

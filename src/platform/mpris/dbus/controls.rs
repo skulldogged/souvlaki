@@ -12,7 +12,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use super::super::Error;
-use crate::{MediaControlEvent, MediaMetadata, MediaPlayback, PlatformConfig};
+use crate::{MediaButton, MediaControlEvent, MediaMetadata, MediaPlayback, PlatformConfig};
 
 /// A handle to OS media controls.
 pub struct MediaControls {
@@ -31,6 +31,7 @@ enum InternalEvent {
     ChangeMetadata(OwnedMetadata),
     ChangePlayback(MediaPlayback),
     ChangeVolume(f64),
+    ChangeButtonEnabled(MediaButton, bool),
     Kill,
 }
 
@@ -40,6 +41,11 @@ pub struct ServiceState {
     pub metadata_dict: HashMap<String, Variant<Box<dyn RefArg>>>,
     pub playback_status: MediaPlayback,
     pub volume: f64,
+    pub can_play: bool,
+    pub can_pause: bool,
+    pub can_go_next: bool,
+    pub can_go_previous: bool,
+    pub can_seek: bool,
 }
 
 impl ServiceState {
@@ -190,6 +196,11 @@ impl MediaControls {
         self.send_internal_event(InternalEvent::ChangeVolume(volume))
     }
 
+    /// Enable or disable a specific media control button.
+    pub fn set_button_enabled(&mut self, button: MediaButton, enabled: bool) -> Result<(), Error> {
+        self.send_internal_event(InternalEvent::ChangeButtonEnabled(button, enabled))
+    }
+
     fn send_internal_event(&mut self, event: InternalEvent) -> Result<(), Error> {
         let thread = &self.thread.as_ref().ok_or(Error::ThreadNotRunning)?;
         thread
@@ -213,6 +224,11 @@ where
         metadata_dict: create_metadata_dict(&Default::default()),
         playback_status: MediaPlayback::Stopped,
         volume: 1.0,
+        can_play: true,
+        can_pause: true,
+        can_go_next: true,
+        can_go_previous: true,
+        can_seek: true,
     }));
     let event_handler = Arc::new(Mutex::new(event_handler));
     let seeked_signal = Arc::new(Mutex::new(None));
@@ -257,6 +273,39 @@ where
                     let mut state = state.lock().unwrap();
                     state.volume = volume;
                     changed_properties.insert("Volume".to_owned(), Variant(Box::new(volume)));
+                }
+                InternalEvent::ChangeButtonEnabled(button, enabled) => {
+                    let mut state = state.lock().unwrap();
+                    match button {
+                        MediaButton::Play => {
+                            state.can_play = enabled;
+                            changed_properties
+                                .insert("CanPlay".to_owned(), Variant(Box::new(enabled)));
+                        }
+                        MediaButton::Pause => {
+                            state.can_pause = enabled;
+                            changed_properties
+                                .insert("CanPause".to_owned(), Variant(Box::new(enabled)));
+                        }
+                        MediaButton::Next => {
+                            state.can_go_next = enabled;
+                            changed_properties
+                                .insert("CanGoNext".to_owned(), Variant(Box::new(enabled)));
+                        }
+                        MediaButton::Previous => {
+                            state.can_go_previous = enabled;
+                            changed_properties
+                                .insert("CanGoPrevious".to_owned(), Variant(Box::new(enabled)));
+                        }
+                        MediaButton::Seek => {
+                            state.can_seek = enabled;
+                            changed_properties
+                                .insert("CanSeek".to_owned(), Variant(Box::new(enabled)));
+                        }
+                        MediaButton::Stop => {
+                            // MPRIS doesn't have a separate CanStop property
+                        }
+                    }
                 }
                 _ => (),
             }

@@ -189,19 +189,34 @@ where
             .emits_changed_true();
 
         b.property("CanGoNext")
-            .get(|_, _| Ok(true))
+            .get({
+                let state = state.clone();
+                move |_, _| Ok(state.lock().unwrap().can_go_next)
+            })
             .emits_changed_true();
         b.property("CanGoPrevious")
-            .get(|_, _| Ok(true))
+            .get({
+                let state = state.clone();
+                move |_, _| Ok(state.lock().unwrap().can_go_previous)
+            })
             .emits_changed_true();
         b.property("CanPlay")
-            .get(|_, _| Ok(true))
+            .get({
+                let state = state.clone();
+                move |_, _| Ok(state.lock().unwrap().can_play)
+            })
             .emits_changed_true();
         b.property("CanPause")
-            .get(|_, _| Ok(true))
+            .get({
+                let state = state.clone();
+                move |_, _| Ok(state.lock().unwrap().can_pause)
+            })
             .emits_changed_true();
         b.property("CanSeek")
-            .get(|_, _| Ok(true))
+            .get({
+                let state = state.clone();
+                move |_, _| Ok(state.lock().unwrap().can_seek)
+            })
             .emits_changed_true();
         b.property("CanControl")
             .get(|_, _| Ok(true))

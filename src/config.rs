@@ -9,4 +9,8 @@ pub struct PlatformConfig<'a> {
     pub dbus_name: &'a str,
     /// An HWND. (*Required on Windows*)
     pub hwnd: Option<*mut c_void>,
+    /// The AppUserModelId for Windows. This is displayed as the app name in SMTC.
+    /// If not set, Windows will show "Unknown app". (*Optional, Windows only*)
+    /// Example: "com.example.myapp"
+    pub app_id: Option<&'a str>,
 }

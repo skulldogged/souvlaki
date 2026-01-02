@@ -76,6 +76,17 @@ pub enum SeekDirection {
     Backward,
 }
 
+/// Media control buttons that can be enabled or disabled.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum MediaButton {
+    Play,
+    Pause,
+    Stop,
+    Next,
+    Previous,
+    Seek,
+}
+
 impl Drop for MediaControls {
     fn drop(&mut self) {
         // Ignores errors if there are any.

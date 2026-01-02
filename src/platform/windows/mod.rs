@@ -8,9 +8,11 @@ use windows::Media::*;
 use windows::Storage::Streams::RandomAccessStreamReference;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::System::WinRT::ISystemMediaTransportControlsInterop;
+use windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
 
 use crate::{
-    MediaControlEvent, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig, SeekDirection,
+    MediaButton, MediaControlEvent, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
+    SeekDirection,
 };
 
 /// A handle to OS media controls.
@@ -50,6 +52,15 @@ impl From<WindowsError> for Error {
 impl MediaControls {
     /// Create media controls with the specified config.
     pub fn new(config: PlatformConfig) -> Result<Self, Error> {
+        // Set AppUserModelId if provided - this determines the app name shown in SMTC
+        if let Some(app_id) = config.app_id {
+            let app_id_hstring = HSTRING::from(app_id);
+            unsafe {
+                // Ignore errors - this is best-effort and may fail in some contexts
+                let _ = SetCurrentProcessExplicitAppUserModelID(&app_id_hstring);
+            }
+        }
+
         let interop: ISystemMediaTransportControlsInterop = windows::core::factory::<
             SystemMediaTransportControls,
             ISystemMediaTransportControlsInterop,
@@ -215,6 +226,22 @@ impl MediaControls {
         self.controls
             .UpdateTimelineProperties(&self.timeline_properties)?;
         self.display_updater.Update()?;
+        Ok(())
+    }
+
+    /// Enable or disable a specific media control button.
+    pub fn set_button_enabled(&mut self, button: MediaButton, enabled: bool) -> Result<(), Error> {
+        match button {
+            MediaButton::Play => self.controls.SetIsPlayEnabled(enabled)?,
+            MediaButton::Pause => self.controls.SetIsPauseEnabled(enabled)?,
+            MediaButton::Stop => self.controls.SetIsStopEnabled(enabled)?,
+            MediaButton::Next => self.controls.SetIsNextEnabled(enabled)?,
+            MediaButton::Previous => self.controls.SetIsPreviousEnabled(enabled)?,
+            MediaButton::Seek => {
+                self.controls.SetIsFastForwardEnabled(enabled)?;
+                self.controls.SetIsRewindEnabled(enabled)?;
+            }
+        }
         Ok(())
     }
 }

@@ -22,7 +22,7 @@ use core_graphics::geometry::CGSize;
 use dispatch::{Queue, QueuePriority};
 use objc::{class, msg_send, sel, sel_impl};
 
-use crate::{MediaControlEvent, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
+use crate::{MediaButton, MediaControlEvent, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
 
 /// A platform-specific error.
 #[derive(Debug)]
@@ -69,6 +69,12 @@ impl MediaControls {
     /// Set the metadata of the currently playing media item.
     pub fn set_metadata(&mut self, metadata: MediaMetadata) -> Result<(), Error> {
         unsafe { set_playback_metadata(metadata) };
+        Ok(())
+    }
+
+    /// Enable or disable a specific media control button.
+    pub fn set_button_enabled(&mut self, button: MediaButton, enabled: bool) -> Result<(), Error> {
+        unsafe { set_command_enabled(button, enabled) };
         Ok(())
     }
 }
@@ -280,6 +286,44 @@ unsafe fn detach_command_handlers() {
     let cmd: id = msg_send!(command_center, changePlaybackPositionCommand);
     let _: () = msg_send!(cmd, setEnabled: NO);
     let _: () = msg_send!(cmd, removeTarget: nil);
+}
+
+unsafe fn set_command_enabled(button: MediaButton, enabled: bool) {
+    let command_center: id = msg_send!(class!(MPRemoteCommandCenter), sharedCommandCenter);
+    let enabled_val = if enabled { YES } else { NO };
+
+    match button {
+        MediaButton::Play => {
+            let cmd: id = msg_send!(command_center, playCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+            // Also update toggle since play/pause are linked
+            let cmd: id = msg_send!(command_center, togglePlayPauseCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+        }
+        MediaButton::Pause => {
+            let cmd: id = msg_send!(command_center, pauseCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+            // Also update toggle since play/pause are linked
+            let cmd: id = msg_send!(command_center, togglePlayPauseCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+        }
+        MediaButton::Stop => {
+            let cmd: id = msg_send!(command_center, stopCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+        }
+        MediaButton::Next => {
+            let cmd: id = msg_send!(command_center, nextTrackCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+        }
+        MediaButton::Previous => {
+            let cmd: id = msg_send!(command_center, previousTrackCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+        }
+        MediaButton::Seek => {
+            let cmd: id = msg_send!(command_center, changePlaybackPositionCommand);
+            let _: () = msg_send!(cmd, setEnabled: enabled_val);
+        }
+    }
 }
 
 unsafe fn ns_string(value: &str) -> id {

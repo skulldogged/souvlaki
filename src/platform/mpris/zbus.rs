@@ -10,7 +10,8 @@ use zbus::{dbus_interface, ConnectionBuilder, SignalContext};
 use zvariant::{ObjectPath, Value};
 
 use crate::{
-    MediaControlEvent, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig, SeekDirection,
+    MediaButton, MediaControlEvent, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
+    SeekDirection,
 };
 
 use super::Error;
@@ -32,6 +33,7 @@ enum InternalEvent {
     ChangeMetadata(OwnedMetadata),
     ChangePlayback(MediaPlayback),
     ChangeVolume(f64),
+    ChangeButtonEnabled(MediaButton, bool),
     Kill,
 }
 
@@ -40,6 +42,11 @@ struct ServiceState {
     metadata: OwnedMetadata,
     playback_status: MediaPlayback,
     volume: f64,
+    can_play: bool,
+    can_pause: bool,
+    can_go_next: bool,
+    can_go_previous: bool,
+    can_seek: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
@@ -128,6 +135,12 @@ impl MediaControls {
     /// Set the volume level (0.0 - 1.0) (Only available on MPRIS)
     pub fn set_volume(&mut self, volume: f64) -> Result<(), Error> {
         self.send_internal_event(InternalEvent::ChangeVolume(volume))?;
+        Ok(())
+    }
+
+    /// Enable or disable a specific media control button.
+    pub fn set_button_enabled(&mut self, button: MediaButton, enabled: bool) -> Result<(), Error> {
+        self.send_internal_event(InternalEvent::ChangeButtonEnabled(button, enabled))?;
         Ok(())
     }
 
@@ -351,27 +364,27 @@ impl PlayerInterface {
 
     #[dbus_interface(property)]
     fn can_go_next(&self) -> bool {
-        true
+        self.state.can_go_next
     }
 
     #[dbus_interface(property)]
     fn can_go_previous(&self) -> bool {
-        true
+        self.state.can_go_previous
     }
 
     #[dbus_interface(property)]
     fn can_play(&self) -> bool {
-        true
+        self.state.can_play
     }
 
     #[dbus_interface(property)]
     fn can_pause(&self) -> bool {
-        true
+        self.state.can_pause
     }
 
     #[dbus_interface(property)]
     fn can_seek(&self) -> bool {
-        true
+        self.state.can_seek
     }
 
     #[dbus_interface(property)]
@@ -396,6 +409,11 @@ async fn run_service(
             metadata: OwnedMetadata::default(),
             playback_status: MediaPlayback::Stopped,
             volume: 1.0,
+            can_play: true,
+            can_pause: true,
+            can_go_next: true,
+            can_go_previous: true,
+            can_seek: true,
         },
         event_handler,
     };
@@ -434,6 +452,33 @@ async fn run_service(
                 InternalEvent::ChangeVolume(volume) => {
                     interface.state.volume = volume;
                     interface.volume_changed(&ctxt).await?;
+                }
+                InternalEvent::ChangeButtonEnabled(button, enabled) => {
+                    match button {
+                        MediaButton::Play => {
+                            interface.state.can_play = enabled;
+                            interface.can_play_changed(&ctxt).await?;
+                        }
+                        MediaButton::Pause => {
+                            interface.state.can_pause = enabled;
+                            interface.can_pause_changed(&ctxt).await?;
+                        }
+                        MediaButton::Next => {
+                            interface.state.can_go_next = enabled;
+                            interface.can_go_next_changed(&ctxt).await?;
+                        }
+                        MediaButton::Previous => {
+                            interface.state.can_go_previous = enabled;
+                            interface.can_go_previous_changed(&ctxt).await?;
+                        }
+                        MediaButton::Seek => {
+                            interface.state.can_seek = enabled;
+                            interface.can_seek_changed(&ctxt).await?;
+                        }
+                        MediaButton::Stop => {
+                            // MPRIS doesn't have a separate CanStop property
+                        }
+                    }
                 }
                 InternalEvent::Kill => (),
             }
